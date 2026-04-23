@@ -1,0 +1,16 @@
+.card-dash {
+  transition: transform 0.2s;
+  cursor: default;
+}
+.card-dash:hover {
+  transform: translateY(-5px);
+}
+.nav-tabs .nav-link {
+  font-weight: bold;
+}
+.table-responsive {
+  margin-top: 1rem;
+}
+.btn-sm {
+  margin-right: 5px;
+}

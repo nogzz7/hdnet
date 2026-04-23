@@ -1,0 +1,12 @@
+[build]
+  publish = "public"  # Pasta do seu front-end
+
+[functions]
+  directory = "netlify/functions" # Pasta das suas funções
+
+[dev]
+  framework = "#custom" # Indica que não é um framework padrão
+
+[dev.environment]
+  # A CLI da Netlify vai carregar seu .env durante o desenvolvimento
+  DATABASE_URL = "development-placeholder"
