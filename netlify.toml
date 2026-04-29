@@ -1,8 +1,11 @@
 [build]
+  # Define a pasta onde está o index.html
+  publish = "public"
+  
+  # Define a pasta onde o Netlify deve procurar as funções
   functions = "netlify/functions"
 
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
-  force = true
