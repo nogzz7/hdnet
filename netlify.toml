@@ -5,6 +5,12 @@
   # Define a pasta onde o Netlify deve procurar as funções
   functions = "netlify/functions"
 
+[dev]
+  # Força o Netlify Dev a usar a pasta public
+  publish = "public"
+  port = 8888
+  targetPort = 3999
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
