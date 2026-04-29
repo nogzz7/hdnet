@@ -7,9 +7,9 @@ export async function handler(event) {
     'Content-Type': 'application/json'
   };
 
-  // Verificação inicial da conexão
+  // 🔥 Verifica se a variável de ambiente existe
   if (!process.env.DATABASE_URL) {
-    console.error('DATABASE_URL não definida');
+    console.error('DATABASE_URL não definida nas variáveis de ambiente');
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Configuração do banco ausente' }) };
   }
 
@@ -58,7 +58,7 @@ export async function handler(event) {
 
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método não permitido' }) };
   } catch (error) {
-    console.error('Erro na função ordens:', error);
+    console.error('❌ Erro na função ordens:', error);
     return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
   }
 }

@@ -1,8 +1,8 @@
 {
-  "name": "hdnet-neon",
+  "name": "hdnet",
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0"
+    "@neondatabase/serverless": "^0.9.0"
   }
 }
