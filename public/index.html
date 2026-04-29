@@ -33,11 +33,14 @@
       </div>
       <h1 class="text-2xl font-black tracking-tighter uppercase text-slate-800">HDNET PRO</h1>
     </div>
-    <button onclick="imprimirRelatorioGeral()" class="mt-2 md:mt-0 bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold shadow transition-all"><i class="fas fa-print mr-2"></i> Relatório Geral</button>
+    <div class="flex gap-2 mt-2 md:mt-0">
+      <button id="btnAcessoAdmin" onclick="setView('admin')" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold shadow transition-all"><i class="fas fa-user-shield mr-2"></i> Admin</button>
+      <button id="btnAcessoTecnico" onclick="abrirLoginTecnico()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow transition-all"><i class="fas fa-hard-hat mr-2"></i> Sou Técnico</button>
+    </div>
   </div>
 
-  <!-- Dashboards cards -->
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 no-print">
+  <!-- Dashboards cards (visíveis apenas no modo admin) -->
+  <div id="adminDashboard" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 no-print">
     <div class="bg-white p-5 rounded-2xl shadow-md border-l-8 border-amber-500">
       <p class="text-slate-400 text-[10px] font-bold uppercase">OS Pendentes</p>
       <h3 id="stat-os" class="text-3xl font-black text-slate-800">0</h3>
@@ -52,22 +55,41 @@
     </div>
   </div>
 
-  <!-- Abas e busca -->
-  <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 no-print">
-    <div class="flex gap-2 bg-white p-1 rounded-2xl shadow-sm">
-      <button onclick="setActiveTab('os')" id="tab-os" class="tab-btn px-5 py-2 rounded-xl text-xs font-bold uppercase flex items-center gap-2 transition-all"><i class="fas fa-clipboard-list"></i> Ordens</button>
-      <button onclick="setActiveTab('clientes')" id="tab-clientes" class="tab-btn px-5 py-2 rounded-xl text-xs font-bold uppercase flex items-center gap-2 transition-all"><i class="fas fa-users"></i> Clientes</button>
-      <button onclick="setActiveTab('tecnicos')" id="tab-tecnicos" class="tab-btn px-5 py-2 rounded-xl text-xs font-bold uppercase flex items-center gap-2 transition-all"><i class="fas fa-user-cog"></i> Equipe</button>
+  <!-- Área administrativa -->
+  <div id="adminView" class="fade-in">
+    <!-- Abas e busca (admin) -->
+    <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 no-print">
+      <div class="flex gap-2 bg-white p-1 rounded-2xl shadow-sm">
+        <button onclick="setActiveTab('os')" id="tab-os" class="tab-btn px-5 py-2 rounded-xl text-xs font-bold uppercase flex items-center gap-2 transition-all"><i class="fas fa-clipboard-list"></i> Ordens</button>
+        <button onclick="setActiveTab('clientes')" id="tab-clientes" class="tab-btn px-5 py-2 rounded-xl text-xs font-bold uppercase flex items-center gap-2 transition-all"><i class="fas fa-users"></i> Clientes</button>
+        <button onclick="setActiveTab('tecnicos')" id="tab-tecnicos" class="tab-btn px-5 py-2 rounded-xl text-xs font-bold uppercase flex items-center gap-2 transition-all"><i class="fas fa-user-cog"></i> Equipe</button>
+      </div>
+      <div class="relative w-full md:w-80">
+        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-sm"></i>
+        <input type="text" id="searchInput" placeholder="Filtrar..." class="w-full pl-10 pr-4 py-3 bg-white rounded-2xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm shadow-sm">
+      </div>
     </div>
-    <div class="relative w-full md:w-80">
-      <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-sm"></i>
-      <input type="text" id="searchInput" placeholder="Filtrar..." class="w-full pl-10 pr-4 py-3 bg-white rounded-2xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm shadow-sm">
+
+    <!-- Conteúdo dinâmico (admin) -->
+    <div id="adminContent" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+      <!-- renderizado via JS -->
     </div>
   </div>
 
-  <!-- Conteúdo dinâmico -->
-  <div id="content" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
-    <!-- renderizado via JS -->
+  <!-- Área do técnico (inicialmente oculta) -->
+  <div id="tecnicoView" class="hidden fade-in">
+    <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+      <div class="p-5 border-b bg-blue-50 flex justify-between items-center flex-wrap gap-2">
+        <div>
+          <h2 class="text-xl font-black text-slate-800"><i class="fas fa-hard-hat mr-2 text-blue-600"></i> Minhas Ordens</h2>
+          <p id="tecInfo" class="text-sm text-slate-500 mt-1">Técnico: </p>
+        </div>
+        <button onclick="setView('admin')" class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all"><i class="fas fa-arrow-left mr-1"></i> Voltar ao Admin</button>
+      </div>
+      <div id="tecOSList" class="p-5">
+        <!-- lista de ordens do técnico -->
+      </div>
+    </div>
   </div>
 </div>
 
@@ -83,14 +105,16 @@
 </div>
 
 <script>
-  // ======================= ESTADO INICIAL =======================
+  // ======================= ESTADO GLOBAL =======================
   let clientes = [];
   let tecnicos = [];
   let ordens = [];
   let activeTab = 'os';
   let searchTerm = '';
+  let currentView = 'admin';       // 'admin' ou 'tecnico'
+  let tecnicoLogado = null;        // objeto do técnico logado
 
-  // Carregar dados do LocalStorage ou iniciar com dados de exemplo
+  // ======================= CARREGAR DADOS (LocalStorage) =======================
   function carregarDados() {
     const storedClientes = localStorage.getItem('hdnet_clientes');
     const storedTecnicos = localStorage.getItem('hdnet_tecnicos');
@@ -106,7 +130,8 @@
     ];
     ordens = storedOrdens ? JSON.parse(storedOrdens) : [
       { id: 1, clienteId: 1, tecnicoId: 1, tipo: "Instalação", problema: "Instalar fibra + roteador", status: "aberta" },
-      { id: 2, clienteId: 2, tecnicoId: 2, tipo: "Manutenção", problema: "Internet caindo constantemente", status: "em andamento" }
+      { id: 2, clienteId: 2, tecnicoId: 2, tipo: "Manutenção", problema: "Internet caindo constantemente", status: "em andamento" },
+      { id: 3, clienteId: 1, tecnicoId: 1, tipo: "Manutenção", problema: "Sinal fraco", status: "aberta" }
     ];
     salvarTudo();
   }
@@ -121,7 +146,7 @@
     return lista.length ? Math.max(...lista.map(i => i.id)) + 1 : 1;
   }
 
-  // Atualizar cards
+  // Atualizar cards do dashboard (admin)
   function atualizarDashboard() {
     const pendentes = ordens.filter(o => o.status !== 'concluida').length;
     document.getElementById('stat-os').innerText = pendentes;
@@ -129,9 +154,104 @@
     document.getElementById('stat-tecnicos').innerText = tecnicos.length;
   }
 
-  // ======================= RENDERIZAÇÃO =======================
-  function render() {
-    const contentDiv = document.getElementById('content');
+  // ======================= GERENCIAMENTO DE VIEW =======================
+  function setView(view) {
+    currentView = view;
+    if (view === 'admin') {
+      document.getElementById('adminView').classList.remove('hidden');
+      document.getElementById('tecnicoView').classList.add('hidden');
+      document.getElementById('adminDashboard').classList.remove('hidden');
+      // re-renderiza admin
+      setActiveTab(activeTab);
+      atualizarDashboard();
+    } else if (view === 'tecnico' && tecnicoLogado) {
+      document.getElementById('adminView').classList.add('hidden');
+      document.getElementById('tecnicoView').classList.remove('hidden');
+      document.getElementById('adminDashboard').classList.add('hidden');
+      renderTecnicoView();
+    }
+  }
+
+  function abrirLoginTecnico() {
+    if (tecnicos.length === 0) {
+      alert("Nenhum técnico cadastrado. Cadastre primeiro na área administrativa.");
+      return;
+    }
+    document.getElementById('modal-title').innerText = "Selecione o Técnico";
+    let tecOptions = tecnicos.map(t => `
+      <button onclick="selecionarTecnico(${t.id})" class="w-full text-left p-4 border border-slate-200 rounded-2xl hover:border-blue-500 hover:bg-blue-50 flex justify-between items-center transition-all">
+        <div><span class="font-bold text-slate-800">${escapeHtml(t.nome)}</span><p class="text-xs text-slate-500">${escapeHtml(t.especialidade || 'Geral')}</p></div>
+        <i class="fas fa-arrow-right text-blue-500"></i>
+      </button>
+    `).join('');
+    document.getElementById('modal-body').innerHTML = `<div class="space-y-3">${tecOptions}<button onclick="fecharModal()" class="w-full mt-2 text-slate-400 text-sm">Cancelar</button></div>`;
+    document.getElementById('modal').classList.remove('hidden');
+  }
+
+  function selecionarTecnico(id) {
+    const tec = tecnicos.find(t => t.id === id);
+    if (tec) {
+      tecnicoLogado = tec;
+      setView('tecnico');
+      fecharModal();
+    }
+  }
+
+  // ======================= VISÃO DO TÉCNICO =======================
+  function renderTecnicoView() {
+    document.getElementById('tecInfo').innerHTML = `<i class="fas fa-user-check text-emerald-600 mr-1"></i> ${escapeHtml(tecnicoLogado.nome)} - ${escapeHtml(tecnicoLogado.especialidade || 'Técnico')}`;
+    const minhasOrdens = ordens.filter(o => o.tecnicoId === tecnicoLogado.id);
+    if (minhasOrdens.length === 0) {
+      document.getElementById('tecOSList').innerHTML = `<div class="text-center p-8 text-slate-400 bg-slate-50 rounded-2xl"><i class="fas fa-clipboard-list text-4xl mb-2 opacity-50"></i><p>Nenhuma ordem atribuída a você.</p></div>`;
+      return;
+    }
+    let html = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+    minhasOrdens.forEach(os => {
+      const cliente = clientes.find(c => c.id === os.clienteId);
+      let statusBadge = '';
+      let statusClass = '';
+      if (os.status === 'aberta') { statusBadge = 'Aberta'; statusClass = 'bg-amber-100 text-amber-700'; }
+      else if (os.status === 'em andamento') { statusBadge = 'Em andamento'; statusClass = 'bg-yellow-100 text-yellow-700'; }
+      else { statusBadge = 'Concluída'; statusClass = 'bg-emerald-100 text-emerald-700'; }
+      html += `
+        <div class="border rounded-2xl p-5 shadow-sm hover:shadow-md transition">
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 class="font-bold text-slate-800">${escapeHtml(cliente?.nome || 'Cliente removido')}</h3>
+              <p class="text-xs text-slate-500 mt-1"><i class="fas fa-map-marker-alt mr-1"></i> ${escapeHtml(cliente?.endereco || 'Endereço não informado')}</p>
+            </div>
+            <span class="text-[10px] font-bold px-2 py-1 rounded-lg ${statusClass}">${statusBadge}</span>
+          </div>
+          <div class="mt-3 text-sm">
+            <span class="font-bold text-slate-600">Tipo:</span> ${escapeHtml(os.tipo || '-')}<br>
+            <span class="font-bold text-slate-600">Problema:</span> ${escapeHtml(os.problema || '-')}
+          </div>
+          ${os.status !== 'concluida' ? 
+            `<button onclick="finalizarOS(${os.id})" class="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-all"><i class="fas fa-check-circle mr-2"></i> FINALIZAR ORDEM</button>` : 
+            `<button disabled class="mt-4 w-full bg-slate-300 text-slate-500 font-bold py-3 rounded-xl cursor-not-allowed"><i class="fas fa-check-circle mr-2"></i> CONCLUÍDA</button>`
+          }
+        </div>
+      `;
+    });
+    html += `</div>`;
+    document.getElementById('tecOSList').innerHTML = html;
+  }
+
+  function finalizarOS(id) {
+    const ordem = ordens.find(o => o.id === id);
+    if (ordem && ordem.status !== 'concluida') {
+      ordem.status = 'concluida';
+      salvarTudo();
+      if (currentView === 'tecnico') renderTecnicoView();
+      atualizarDashboard();
+      if (currentView === 'admin') renderAdminContent(); // recarrega admin se estiver visível
+      alert("✅ Ordem finalizada com sucesso!");
+    }
+  }
+
+  // ======================= RENDERIZAÇÃO ADMIN =======================
+  function renderAdminContent() {
+    const contentDiv = document.getElementById('adminContent');
     if (activeTab === 'os') {
       let filtered = ordens.filter(os => {
         const cliente = clientes.find(c => c.id === os.clienteId);
@@ -171,7 +291,7 @@
             <button onclick="editarOS(${os.id})" class="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition"><i class="fas fa-edit"></i></button>
             <button onclick="excluirOS(${os.id})" class="text-red-500 hover:bg-red-50 p-2 rounded-lg transition"><i class="fas fa-trash-alt"></i></button>
           </td>
-         </tr>`;
+        </tr>`;
       });
       if (filtered.length === 0) html += `<tr><td colspan="5" class="p-8 text-center text-slate-400">Nenhuma ordem encontrada</td></tr>`;
       html += `</tbody></table></div>`;
@@ -244,7 +364,7 @@
       }
       salvarTudo();
       atualizarDashboard();
-      render();
+      if (currentView === 'admin') renderAdminContent();
       fecharModal();
     };
   }
@@ -258,7 +378,7 @@
       clientes = clientes.filter(c => c.id !== id);
       salvarTudo();
       atualizarDashboard();
-      render();
+      if (currentView === 'admin') renderAdminContent();
     }
   }
 
@@ -287,7 +407,7 @@
       }
       salvarTudo();
       atualizarDashboard();
-      render();
+      if (currentView === 'admin') renderAdminContent();
       fecharModal();
     };
   }
@@ -301,7 +421,7 @@
       tecnicos = tecnicos.filter(t => t.id !== id);
       salvarTudo();
       atualizarDashboard();
-      render();
+      if (currentView === 'admin') renderAdminContent();
     }
   }
 
@@ -342,7 +462,7 @@
       }
       salvarTudo();
       atualizarDashboard();
-      render();
+      if (currentView === 'admin') renderAdminContent();
       fecharModal();
     };
   }
@@ -353,7 +473,7 @@
       ordens = ordens.filter(o => o.id !== id);
       salvarTudo();
       atualizarDashboard();
-      render();
+      if (currentView === 'admin') renderAdminContent();
     }
   }
   function concluirOS(id) {
@@ -362,14 +482,13 @@
       os.status = 'concluida';
       salvarTudo();
       atualizarDashboard();
-      render();
+      if (currentView === 'admin') renderAdminContent();
       alert("✅ OS concluída!");
     }
   }
 
-  // ======================= PDF DAS ORDENS =======================
+  // ======================= PDF DAS ORDENS (apenas admin) =======================
   async function gerarPDFOrdens() {
-    // Aplica o filtro de busca atual (caso exista)
     let filtered = ordens.filter(os => {
       const cliente = clientes.find(c => c.id === os.clienteId);
       const tecnico = tecnicos.find(t => t.id === os.tecnicoId);
@@ -378,13 +497,10 @@
              os.tipo?.toLowerCase().includes(searchTerm) ||
              os.problema?.toLowerCase().includes(searchTerm);
     });
-
     if (filtered.length === 0) {
       alert("Nenhuma ordem para exportar no momento.");
       return;
     }
-
-    // Prepara os dados para a tabela
     const tableData = filtered.map(os => {
       const cliente = clientes.find(c => c.id === os.clienteId);
       const tecnico = tecnicos.find(t => t.id === os.tecnicoId);
@@ -398,18 +514,13 @@
         statusText
       ];
     });
-
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    
-    // Título e cabeçalho
     doc.setFontSize(18);
     doc.text("HDNet - Ordens de Serviço", 14, 20);
     doc.setFontSize(10);
     doc.text(`Gerado em: ${new Date().toLocaleString()}`, 14, 28);
     doc.text(`Total de registros: ${filtered.length}`, 14, 35);
-    
-    // Configuração da tabela
     doc.autoTable({
       startY: 42,
       head: [['ID', 'Cliente', 'Técnico', 'Tipo', 'Problema', 'Status']],
@@ -417,29 +528,19 @@
       theme: 'striped',
       headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 10 },
       bodyStyles: { fontSize: 8 },
-      columnStyles: {
-        0: { cellWidth: 12 },
-        1: { cellWidth: 40 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 50 },
-        5: { cellWidth: 20 }
-      },
+      columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: 40 }, 2: { cellWidth: 30 }, 3: { cellWidth: 25 }, 4: { cellWidth: 50 }, 5: { cellWidth: 20 } },
       margin: { left: 14, right: 14 }
     });
-    
-    // Rodapé
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(8);
       doc.text("Sistema HDNet - Gestão de Manutenção", 14, doc.internal.pageSize.height - 10);
     }
-    
     doc.save(`ordens_hdnet_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`);
   }
 
-  // ======================= RELATÓRIO GERAL (IMPRESSÃO) =======================
+  // ======================= IMPRESSÃO RELATÓRIO GERAL =======================
   function imprimirRelatorioGeral() {
     const dataHora = new Date().toLocaleString();
     const win = window.open('', '_blank');
@@ -472,27 +573,29 @@
   }
   function fecharModal() { document.getElementById('modal').classList.add('hidden'); }
   function setActiveTab(tab) {
+    if (currentView !== 'admin') return;
     activeTab = tab;
     document.getElementById('tab-os').classList.remove('tab-active');
     document.getElementById('tab-clientes').classList.remove('tab-active');
     document.getElementById('tab-tecnicos').classList.remove('tab-active');
     document.getElementById(`tab-${tab}`).classList.add('tab-active');
-    render();
+    renderAdminContent();
   }
-  
-  // Evento de busca
+
+  // Evento de busca (admin)
   document.getElementById('searchInput').addEventListener('input', (e) => {
+    if (currentView !== 'admin') return;
     searchTerm = e.target.value.toLowerCase();
-    render();
+    renderAdminContent();
   });
 
   // Inicialização
   carregarDados();
   atualizarDashboard();
+  setView('admin');
   setActiveTab('os');
-  document.getElementById('tab-os').classList.add('tab-active');
 
-  // Expor funções globais
+  // Expor funções globais para os botões dinâmicos
   window.abrirFormCliente = abrirFormCliente;
   window.excluirCliente = excluirCliente;
   window.abrirFormTecnico = abrirFormTecnico;
@@ -501,8 +604,12 @@
   window.editarOS = editarOS;
   window.excluirOS = excluirOS;
   window.concluirOS = concluirOS;
+  window.finalizarOS = finalizarOS;
   window.fecharModal = fecharModal;
   window.setActiveTab = setActiveTab;
+  window.setView = setView;
+  window.abrirLoginTecnico = abrirLoginTecnico;
+  window.selecionarTecnico = selecionarTecnico;
   window.imprimirRelatorioGeral = imprimirRelatorioGeral;
   window.gerarPDFOrdens = gerarPDFOrdens;
 </script>
