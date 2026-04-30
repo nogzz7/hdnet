@@ -8,9 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-  <style>
-    .tab-active { background-color: #0f172a !important; color: white !important; }
-  </style>
+  <style>.tab-active { background-color: #0f172a !important; color: white !important; }</style>
 </head>
 <body class="bg-slate-100">
 
@@ -65,8 +63,8 @@
 </div>
 
 <script>
-  // 🔁 ALTERE AQUI A URL DO SEU BACKEND NO RENDER
-  const API_BASE = 'https://hdnet-api.onrender.com/api'; // SUBSTITUA PELA SUA URL REAL
+  // 🔁 ALTERE A LINHA ABAIXO PELA URL DO SEU BACKEND NO RENDER
+  const API_BASE = 'https://hdnet-api.onrender.com/api';   // <--- COLOQUE A SUA AQUI
 
   let clientes = [], tecnicos = [], ordens = [];
   let activeTab = 'os', searchTerm = '', currentView = 'admin', tecnicoLogado = null;
@@ -78,13 +76,14 @@
         fetch(`${API_BASE}/tecnicos`),
         fetch(`${API_BASE}/ordens`)
       ]);
+      if (!resCli.ok || !resTec.ok || !resOrd.ok) throw new Error('Erro na resposta');
       clientes = await resCli.json();
       tecnicos = await resTec.json();
       ordens = await resOrd.json();
       atualizarDashboard();
       if (currentView === 'admin') renderAdminContent();
       else if (currentView === 'tecnico' && tecnicoLogado) renderTecnicoView();
-    } catch (err) { alert('Erro ao carregar dados da API'); }
+    } catch (err) { console.error(err); alert('Erro ao carregar dados da API. Verifique se o backend está rodando.'); }
   }
 
   async function salvarCliente(dados, id = null) {
@@ -93,7 +92,6 @@
     await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
     await carregarDados();
   }
-
   async function excluirCliente(id) {
     if (ordens.some(o => o.cliente_id === id)) return alert("Cliente possui ordens.");
     if (confirm("Excluir?")) {
@@ -101,14 +99,12 @@
       await carregarDados();
     }
   }
-
   async function salvarTecnico(dados, id = null) {
     const url = id ? `${API_BASE}/tecnicos?id=${id}` : `${API_BASE}/tecnicos`;
     const method = id ? 'PUT' : 'POST';
     await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
     await carregarDados();
   }
-
   async function excluirTecnico(id) {
     if (ordens.some(o => o.tecnico_id === id)) return alert("Técnico possui ordens.");
     if (confirm("Excluir?")) {
@@ -116,21 +112,18 @@
       await carregarDados();
     }
   }
-
   async function salvarOS(dados, id = null) {
     const url = id ? `${API_BASE}/ordens?id=${id}` : `${API_BASE}/ordens`;
     const method = id ? 'PUT' : 'POST';
     await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
     await carregarDados();
   }
-
   async function excluirOS(id) {
     if (confirm("Excluir OS?")) {
       await fetch(`${API_BASE}/ordens?id=${id}`, { method: 'DELETE' });
       await carregarDados();
     }
   }
-
   async function concluirOS(id) {
     const os = ordens.find(o => o.id === id);
     if (os && os.status !== 'concluida') {
@@ -138,14 +131,13 @@
       alert('✅ OS concluída!');
     }
   }
-
   function atualizarDashboard() {
     document.getElementById('stat-os').innerText = ordens.filter(o => o.status !== 'concluida').length;
     document.getElementById('stat-clientes').innerText = clientes.length;
     document.getElementById('stat-tecnicos').innerText = tecnicos.length;
   }
 
-  // ----------------------------- Renderização -----------------------------
+  // RENDER ADMIN
   function renderAdminContent() {
     const container = document.getElementById('adminContent');
     if (activeTab === 'clientes') {
@@ -176,14 +168,12 @@
       const filtered = ordens.filter(o => {
         const cli = clientes.find(c => c.id === o.cliente_id);
         const tec = tecnicos.find(t => t.id === o.tecnico_id);
-        return (cli?.nome || '').toLowerCase().includes(searchTerm) ||
-               (tec?.nome || '').toLowerCase().includes(searchTerm) ||
-               o.tipo?.toLowerCase().includes(searchTerm);
+        return (cli?.nome || '').toLowerCase().includes(searchTerm) || (tec?.nome || '').toLowerCase().includes(searchTerm);
       });
       let html = `<div class="p-4 border-b flex justify-between flex-wrap gap-2"><span class="font-bold">ORDENS (${filtered.length})</span><div class="flex gap-2"><button onclick="window.gerarPDFOrdens()" class="bg-emerald-600 text-white px-3 py-1 rounded-xl text-xs">PDF</button><button onclick="window.abrirFormOS()" class="bg-blue-600 text-white px-3 py-1 rounded-xl text-xs">+ NOVA OS</button></div></div>`;
       if (!filtered.length) html += `<div class="p-8 text-center">Nenhuma ordem</div>`;
       else {
-        html += `<div class="overflow-x-auto"><table class="w-full"><thead class="bg-slate-100"><tr><th class="p-4">Cliente</th><th>Técnico</th><th>Tipo/Problema</th><th>Status</th><th class="text-center">Ações</th></tr></thead><tbody>`;
+        html += `<div class="overflow-x-auto"><table class="w-full"><thead class="bg-slate-100"></td><th class="p-4">Cliente</th><th>Técnico</th><th>Tipo/Problema</th><th>Status</th><th class="text-center">Ações</th></tr></thead><tbody>`;
         filtered.forEach(o => {
           const cli = clientes.find(c => c.id === o.cliente_id);
           const tec = tecnicos.find(t => t.id === o.tecnico_id);
@@ -220,7 +210,7 @@
     }
   }
 
-  // ----------------------------- Modais e formulários -----------------------------
+  // MODAIS
   function abrirFormCliente(id = null) {
     const edit = id !== null, cliente = edit ? clientes.find(c => c.id === id) : null;
     document.getElementById('modal-title').innerText = edit ? 'Editar Cliente' : 'Novo Cliente';
@@ -234,7 +224,6 @@
       window.fecharModal();
     };
   }
-
   function abrirFormTecnico(id = null) {
     const edit = id !== null, tecnico = edit ? tecnicos.find(t => t.id === id) : null;
     document.getElementById('modal-title').innerText = edit ? 'Editar Técnico' : 'Novo Técnico';
@@ -248,13 +237,12 @@
       window.fecharModal();
     };
   }
-
   function abrirFormOS(id = null) {
     const edit = id !== null, osEdit = edit ? ordens.find(o => o.id === id) : null;
     const clienteOpts = clientes.map(c => `<option value="${c.id}" ${osEdit && osEdit.cliente_id === c.id ? 'selected' : ''}>${escapeHtml(c.nome)}</option>`).join('');
     const tecnicoOpts = tecnicos.map(t => `<option value="${t.id}" ${osEdit && osEdit.tecnico_id === t.id ? 'selected' : ''}>${escapeHtml(t.nome)}</option>`).join('');
     document.getElementById('modal-title').innerText = edit ? 'Editar OS' : 'Nova OS';
-    document.getElementById('modal-body').innerHTML = `<form id="modalForm" class="space-y-4"><select name="cliente_id" class="w-full p-3 border rounded-xl" required>${clienteOpts ? '<option value="">Selecione</option>' + clienteOpts : '<option>Nenhum cliente</option>'}</select><select name="tecnico_id" class="w-full p-3 border rounded-xl" required>${tecnicoOpts ? '<option value="">Selecione</option>' + tecnicoOpts : '<option>Nenhum técnico</option>'}</select><select name="tipo" class="w-full p-3 border rounded-xl"><option value="Manutenção" ${osEdit?.tipo === 'Manutenção' ? 'selected' : ''}>Manutenção</option><option value="Instalação" ${osEdit?.tipo === 'Instalação' ? 'selected' : ''}>Instalação</option></select><textarea name="problema" placeholder="Problema" class="w-full p-3 border rounded-xl">${escapeHtml(osEdit?.problema || '')}</textarea><select name="status" class="w-full p-3 border rounded-xl"><option value="aberta" ${osEdit?.status === 'aberta' ? 'selected' : ''}>Aberta</option><option value="em andamento" ${osEdit?.status === 'em andamento' ? 'selected' : ''}>Em andamento</option><option value="concluida" ${osEdit?.status === 'concluida' ? 'selected' : ''}>Concluída</option></select><button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl">SALVAR</button></form>`;
+    document.getElementById('modal-body').innerHTML = `<form id="modalForm" class="space-y-4"><select name="cliente_id" class="w-full p-3 border rounded-xl" required><option value="">Selecione</option>${clienteOpts}</select><select name="tecnico_id" class="w-full p-3 border rounded-xl" required><option value="">Selecione</option>${tecnicoOpts}</select><select name="tipo" class="w-full p-3 border rounded-xl"><option value="Manutenção" ${osEdit?.tipo === 'Manutenção' ? 'selected' : ''}>Manutenção</option><option value="Instalação" ${osEdit?.tipo === 'Instalação' ? 'selected' : ''}>Instalação</option></select><textarea name="problema" placeholder="Problema" class="w-full p-3 border rounded-xl">${escapeHtml(osEdit?.problema || '')}</textarea><select name="status" class="w-full p-3 border rounded-xl"><option value="aberta" ${osEdit?.status === 'aberta' ? 'selected' : ''}>Aberta</option><option value="em andamento" ${osEdit?.status === 'em andamento' ? 'selected' : ''}>Em andamento</option><option value="concluida" ${osEdit?.status === 'concluida' ? 'selected' : ''}>Concluída</option></select><button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl">SALVAR</button></form>`;
     document.getElementById('modal').classList.remove('hidden');
     document.getElementById('modalForm').onsubmit = async (e) => {
       e.preventDefault();
@@ -272,7 +260,6 @@
     document.getElementById('modal-body').innerHTML = `<div class="space-y-2">${botoes}<button onclick="window.fecharModal()" class="w-full text-center text-slate-400 text-sm">Cancelar</button></div>`;
     document.getElementById('modal').classList.remove('hidden');
   }
-
   function selecionarTecnico(id) {
     tecnicoLogado = tecnicos.find(t => t.id === id);
     if (tecnicoLogado) { setView('tecnico'); window.fecharModal(); renderTecnicoView(); }
@@ -298,7 +285,7 @@
     doc.save(`ordens_${Date.now()}.pdf`);
   }
 
-  // ----------------------------- Navegação e utilidades -----------------------------
+  // NAVEGAÇÃO
   function setView(view) {
     currentView = view;
     document.getElementById('adminView').style.display = view === 'admin' ? 'block' : 'none';
@@ -306,7 +293,6 @@
     document.getElementById('adminDashboard').style.display = view === 'admin' ? 'grid' : 'none';
     if (view === 'admin') renderAdminContent();
   }
-
   function setActiveTab(tab) { activeTab = tab; document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('tab-active')); document.getElementById(`tab-${tab}`).classList.add('tab-active'); renderAdminContent(); }
   function fecharModal() { document.getElementById('modal').classList.add('hidden'); }
   function escapeHtml(str) { return !str ? '' : String(str).replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
