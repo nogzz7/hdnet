@@ -4,26 +4,23 @@ import { neon } from '@neondatabase/serverless';
 
 const app = express();
 
-// 🔧 CONFIGURAÇÃO CORS CORRIGIDA (permite seu frontend no Netlify)
+// Configuração CORS aberta (para testes, depois pode restringir)
 app.use(cors({
-    origin: [
-        'https://hdnetmanutencao.netlify.app',  // substitua pelo seu domínio real se for diferente
-        'http://localhost:3000',                // para testes locais
-        'http://localhost:5500'                 // para live server
-    ],
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
+    allowedHeaders: ['Content-Type']
 }));
-
-// Garante que o preflight (OPTIONS) seja tratado
-app.options('*', cors());
 
 app.use(express.json());
 
 const sql = neon(process.env.DATABASE_URL);
 
-// ----- ROTAS CLIENTES -----
+// Teste simples para saber se a API está no ar
+app.get('/', (req, res) => {
+    res.json({ message: 'API HDNet funcionando!' });
+});
+
+// Rotas clientes
 app.get('/api/clientes', async (req, res) => {
     const result = await sql`SELECT * FROM clientes ORDER BY id`;
     res.json(result);
@@ -53,7 +50,7 @@ app.delete('/api/clientes', async (req, res) => {
     res.status(204).send();
 });
 
-// ----- ROTAS TÉCNICOS -----
+// Rotas técnicos
 app.get('/api/tecnicos', async (req, res) => {
     const result = await sql`SELECT * FROM tecnicos ORDER BY id`;
     res.json(result);
@@ -82,7 +79,7 @@ app.delete('/api/tecnicos', async (req, res) => {
     res.status(204).send();
 });
 
-// ----- ROTAS ORDENS -----
+// Rotas ordens
 app.get('/api/ordens', async (req, res) => {
     const result = await sql`
         SELECT o.*, c.nome as cliente_nome, t.nome as tecnico_nome
