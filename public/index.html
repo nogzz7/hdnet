@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HDNet | Gestão de Manutenção</title>
+  <title>HDNet | Gestão Compartilhada</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -15,8 +15,7 @@
 <body class="bg-slate-100">
 
 <div class="max-w-7xl mx-auto p-4 md:p-6">
-  <!-- Cabeçalho -->
-  <div class="flex flex-wrap justify-between items-center mb-6 no-print">
+  <div class="flex flex-wrap justify-between items-center mb-6">
     <div class="flex items-center gap-3">
       <div class="bg-blue-600 w-9 h-9 rounded-xl flex items-center justify-center"><i class="fas fa-wifi text-white"></i></div>
       <h1 class="text-2xl font-black uppercase text-slate-800">HDNET PRO</h1>
@@ -27,14 +26,12 @@
     </div>
   </div>
 
-  <!-- Dashboard -->
   <div id="adminDashboard" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
     <div class="bg-white p-5 rounded-2xl border-l-8 border-amber-500"><p class="text-slate-400 text-xs uppercase">OS Pendentes</p><h3 id="stat-os" class="text-3xl font-black">0</h3></div>
     <div class="bg-white p-5 rounded-2xl border-l-8 border-blue-500"><p class="text-slate-400 text-xs uppercase">Clientes</p><h3 id="stat-clientes" class="text-3xl font-black">0</h3></div>
     <div class="bg-white p-5 rounded-2xl border-l-8 border-emerald-500"><p class="text-slate-400 text-xs uppercase">Técnicos</p><h3 id="stat-tecnicos" class="text-3xl font-black">0</h3></div>
   </div>
 
-  <!-- Admin View -->
   <div id="adminView">
     <div class="flex flex-col md:flex-row justify-between gap-4 mb-6">
       <div class="flex gap-2 bg-white p-1 rounded-2xl">
@@ -47,7 +44,6 @@
     <div id="adminContent" class="bg-white rounded-2xl shadow-md border overflow-hidden"></div>
   </div>
 
-  <!-- Técnico View -->
   <div id="tecnicoView" class="hidden">
     <div class="bg-white rounded-2xl shadow-md p-5">
       <h2 class="text-xl font-black">🔧 Minhas Ordens</h2>
@@ -58,7 +54,6 @@
   </div>
 </div>
 
-<!-- Modal -->
 <div id="modal" class="fixed inset-0 hidden items-center justify-center bg-slate-900/80 z-50">
   <div class="bg-white rounded-3xl w-full max-w-md p-6">
     <div class="flex justify-between items-center mb-4">
@@ -70,138 +65,130 @@
 </div>
 
 <script>
-  // ======================== DADOS GLOBAIS ========================
-  let clientes = [];
-  let tecnicos = [];
-  let ordens = [];
-  let activeTab = 'os';
-  let searchTerm = '';
-  let currentView = 'admin';
-  let tecnicoLogado = null;
+  // 🔁 ALTERE AQUI A URL DO SEU BACKEND NO RENDER
+  const API_BASE = 'https://hdnet-api.onrender.com/api'; // SUBSTITUA PELA SUA URL REAL
 
-  // ======================== PERSISTÊNCIA ========================
-  function salvarTudo() {
-    localStorage.setItem('hdnet_clientes', JSON.stringify(clientes));
-    localStorage.setItem('hdnet_tecnicos', JSON.stringify(tecnicos));
-    localStorage.setItem('hdnet_ordens', JSON.stringify(ordens));
-    atualizarDashboard();
+  let clientes = [], tecnicos = [], ordens = [];
+  let activeTab = 'os', searchTerm = '', currentView = 'admin', tecnicoLogado = null;
+
+  async function carregarDados() {
+    try {
+      const [resCli, resTec, resOrd] = await Promise.all([
+        fetch(`${API_BASE}/clientes`),
+        fetch(`${API_BASE}/tecnicos`),
+        fetch(`${API_BASE}/ordens`)
+      ]);
+      clientes = await resCli.json();
+      tecnicos = await resTec.json();
+      ordens = await resOrd.json();
+      atualizarDashboard();
+      if (currentView === 'admin') renderAdminContent();
+      else if (currentView === 'tecnico' && tecnicoLogado) renderTecnicoView();
+    } catch (err) { alert('Erro ao carregar dados da API'); }
   }
 
-  function carregarDados() {
-    clientes = JSON.parse(localStorage.getItem('hdnet_clientes') || '[]');
-    tecnicos = JSON.parse(localStorage.getItem('hdnet_tecnicos') || '[]');
-    ordens = JSON.parse(localStorage.getItem('hdnet_ordens') || '[]');
-
-    // Dados de exemplo se estiver vazio
-    if (clientes.length === 0) {
-      clientes = [
-        { id: 1, nome: "Ana Paula Souza", telefone: "(11) 98765-4321", endereco: "Rua das Flores, 123", plano: "Fibra 300Mb", mac_roteador: "AA:BB:CC" },
-        { id: 2, nome: "Carlos Eduardo", telefone: "(21) 99999-8888", endereco: "Av. Brasil, 456", plano: "Básico 150Mb", mac_roteador: "11:22:33" }
-      ];
-      salvarTudo();
-    }
-    if (tecnicos.length === 0) {
-      tecnicos = [
-        { id: 1, nome: "Roberto Silva", telefone: "(31) 98888-7777", especialidade: "Fibra Ótica" },
-        { id: 2, nome: "Juliana Mendes", telefone: "(41) 97777-6666", especialidade: "Manutenção Roteadores" }
-      ];
-      salvarTudo();
-    }
-    if (ordens.length === 0) {
-      ordens = [
-        { id: 1, clienteId: 1, tecnicoId: 1, tipo: "Instalação", problema: "Instalar fibra + roteador", status: "aberta" },
-        { id: 2, clienteId: 2, tecnicoId: 2, tipo: "Manutenção", problema: "Internet caindo constantemente", status: "em andamento" }
-      ];
-      salvarTudo();
-    }
-    atualizarDashboard();
+  async function salvarCliente(dados, id = null) {
+    const url = id ? `${API_BASE}/clientes?id=${id}` : `${API_BASE}/clientes`;
+    const method = id ? 'PUT' : 'POST';
+    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
+    await carregarDados();
   }
 
-  function proximoId(lista) { return lista.length ? Math.max(...lista.map(i => i.id)) + 1 : 1; }
+  async function excluirCliente(id) {
+    if (ordens.some(o => o.cliente_id === id)) return alert("Cliente possui ordens.");
+    if (confirm("Excluir?")) {
+      await fetch(`${API_BASE}/clientes?id=${id}`, { method: 'DELETE' });
+      await carregarDados();
+    }
+  }
+
+  async function salvarTecnico(dados, id = null) {
+    const url = id ? `${API_BASE}/tecnicos?id=${id}` : `${API_BASE}/tecnicos`;
+    const method = id ? 'PUT' : 'POST';
+    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
+    await carregarDados();
+  }
+
+  async function excluirTecnico(id) {
+    if (ordens.some(o => o.tecnico_id === id)) return alert("Técnico possui ordens.");
+    if (confirm("Excluir?")) {
+      await fetch(`${API_BASE}/tecnicos?id=${id}`, { method: 'DELETE' });
+      await carregarDados();
+    }
+  }
+
+  async function salvarOS(dados, id = null) {
+    const url = id ? `${API_BASE}/ordens?id=${id}` : `${API_BASE}/ordens`;
+    const method = id ? 'PUT' : 'POST';
+    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
+    await carregarDados();
+  }
+
+  async function excluirOS(id) {
+    if (confirm("Excluir OS?")) {
+      await fetch(`${API_BASE}/ordens?id=${id}`, { method: 'DELETE' });
+      await carregarDados();
+    }
+  }
+
+  async function concluirOS(id) {
+    const os = ordens.find(o => o.id === id);
+    if (os && os.status !== 'concluida') {
+      await salvarOS({ ...os, status: 'concluida' }, id);
+      alert('✅ OS concluída!');
+    }
+  }
 
   function atualizarDashboard() {
-    const pendentes = ordens.filter(o => o.status !== 'concluida').length;
-    document.getElementById('stat-os').innerText = pendentes;
+    document.getElementById('stat-os').innerText = ordens.filter(o => o.status !== 'concluida').length;
     document.getElementById('stat-clientes').innerText = clientes.length;
     document.getElementById('stat-tecnicos').innerText = tecnicos.length;
   }
 
-  // ======================== RENDER ADMIN ========================
+  // ----------------------------- Renderização -----------------------------
   function renderAdminContent() {
     const container = document.getElementById('adminContent');
-    if (!container) return;
-
     if (activeTab === 'clientes') {
       const filtered = clientes.filter(c => c.nome.toLowerCase().includes(searchTerm));
       let html = `<div class="p-4 border-b flex justify-between"><span class="font-bold">CLIENTES (${filtered.length})</span><button onclick="window.abrirFormCliente()" class="bg-blue-600 text-white px-3 py-1 rounded-xl text-xs">+ NOVO</button></div>`;
-      if (!filtered.length) html += `<div class="p-8 text-center text-slate-400">Nenhum cliente</div>`;
+      if (!filtered.length) html += `<div class="p-8 text-center">Nenhum cliente</div>`;
       else {
         html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">`;
         filtered.forEach(c => {
-          html += `<div class="border rounded-2xl p-4 flex justify-between items-start">
-            <div><p class="font-bold">${escapeHtml(c.nome)}</p><p class="text-sm text-slate-500">${escapeHtml(c.telefone || '-')}<br>${escapeHtml(c.endereco || '-')}</p></div>
-            <button onclick="window.excluirCliente(${c.id})" class="text-red-500"><i class="fas fa-trash"></i></button>
-          </div>`;
+          html += `<div class="border rounded-2xl p-4 flex justify-between items-start"><div><p class="font-bold">${escapeHtml(c.nome)}</p><p class="text-sm">${escapeHtml(c.telefone || '-')}<br>${escapeHtml(c.endereco || '-')}</p></div><button onclick="window.excluirCliente(${c.id})" class="text-red-500"><i class="fas fa-trash"></i></button></div>`;
         });
         html += `</div>`;
       }
       container.innerHTML = html;
-    }
-    else if (activeTab === 'tecnicos') {
+    } else if (activeTab === 'tecnicos') {
       const filtered = tecnicos.filter(t => t.nome.toLowerCase().includes(searchTerm));
       let html = `<div class="p-4 border-b flex justify-between"><span class="font-bold">TÉCNICOS (${filtered.length})</span><button onclick="window.abrirFormTecnico()" class="bg-blue-600 text-white px-3 py-1 rounded-xl text-xs">+ NOVO</button></div>`;
-      if (!filtered.length) html += `<div class="p-8 text-center text-slate-400">Nenhum técnico</div>`;
+      if (!filtered.length) html += `<div class="p-8 text-center">Nenhum técnico</div>`;
       else {
         html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">`;
         filtered.forEach(t => {
-          html += `<div class="border rounded-2xl p-4 flex justify-between items-center">
-            <div><p class="font-bold">${escapeHtml(t.nome)}</p><p class="text-sm text-slate-500">${escapeHtml(t.especialidade || 'Geral')}</p></div>
-            <button onclick="window.excluirTecnico(${t.id})" class="text-red-500"><i class="fas fa-trash"></i></button>
-          </div>`;
+          html += `<div class="border rounded-2xl p-4 flex justify-between items-center"><div><p class="font-bold">${escapeHtml(t.nome)}</p><p class="text-sm">${escapeHtml(t.especialidade || 'Geral')}</p></div><button onclick="window.excluirTecnico(${t.id})" class="text-red-500"><i class="fas fa-trash"></i></button></div>`;
         });
         html += `</div>`;
       }
       container.innerHTML = html;
-    }
-    else if (activeTab === 'os') {
-      let filtered = ordens.filter(os => {
-        const cliente = clientes.find(c => c.id === os.clienteId);
-        const tecnico = tecnicos.find(t => t.id === os.tecnicoId);
-        return (cliente?.nome || '').toLowerCase().includes(searchTerm) ||
-               (tecnico?.nome || '').toLowerCase().includes(searchTerm) ||
-               os.tipo?.toLowerCase().includes(searchTerm) ||
-               os.problema?.toLowerCase().includes(searchTerm);
+    } else {
+      const filtered = ordens.filter(o => {
+        const cli = clientes.find(c => c.id === o.cliente_id);
+        const tec = tecnicos.find(t => t.id === o.tecnico_id);
+        return (cli?.nome || '').toLowerCase().includes(searchTerm) ||
+               (tec?.nome || '').toLowerCase().includes(searchTerm) ||
+               o.tipo?.toLowerCase().includes(searchTerm);
       });
-      let html = `
-        <div class="p-4 border-b bg-slate-50 flex justify-between flex-wrap gap-2">
-          <span class="font-bold">ORDENS DE SERVIÇO (${filtered.length})</span>
-          <div class="flex gap-2">
-            <button onclick="window.gerarPDFOrdens()" class="bg-emerald-600 text-white px-3 py-1 rounded-xl text-xs">PDF</button>
-            <button onclick="window.abrirFormOS()" class="bg-blue-600 text-white px-3 py-1 rounded-xl text-xs">+ NOVA OS</button>
-          </div>
-        </div>
-      `;
+      let html = `<div class="p-4 border-b flex justify-between flex-wrap gap-2"><span class="font-bold">ORDENS (${filtered.length})</span><div class="flex gap-2"><button onclick="window.gerarPDFOrdens()" class="bg-emerald-600 text-white px-3 py-1 rounded-xl text-xs">PDF</button><button onclick="window.abrirFormOS()" class="bg-blue-600 text-white px-3 py-1 rounded-xl text-xs">+ NOVA OS</button></div></div>`;
       if (!filtered.length) html += `<div class="p-8 text-center">Nenhuma ordem</div>`;
       else {
-        html += `<div class="overflow-x-auto"><table class="w-full text-left">
-          <thead class="bg-slate-100 text-xs font-bold"><tr><th class="p-4">Cliente</th><th class="p-4">Técnico</th><th class="p-4">Tipo/Problema</th><th class="p-4">Status</th><th class="p-4 text-center">Ações</th></tr></thead>
-          <tbody>`;
-        filtered.forEach(os => {
-          const cliente = clientes.find(c => c.id === os.clienteId);
-          const tecnico = tecnicos.find(t => t.id === os.tecnicoId);
-          let statusClass = os.status === 'aberta' ? 'bg-amber-100 text-amber-700' : (os.status === 'em andamento' ? 'bg-yellow-100' : 'bg-emerald-100');
-          let statusText = { aberta: 'Aberta', 'em andamento': 'Em andamento', concluida: 'Concluída' }[os.status];
-          html += `<tr class="hover:bg-slate-50">
-            <td class="p-4"><div class="font-bold">${escapeHtml(cliente?.nome || 'Removido')}</div><div class="text-xs">${escapeHtml(cliente?.endereco || '')}</div></td>
-            <td class="p-4">${escapeHtml(tecnico?.nome || 'N/A')}</td>
-            <td class="p-4"><span class="bg-slate-200 px-2 py-0.5 rounded text-xs">${escapeHtml(os.tipo || '-')}</span><p class="text-sm">${escapeHtml(os.problema || '-')}</p></td>
-            <td class="p-4"><span class="px-2 py-1 rounded-lg text-xs ${statusClass}">${statusText}</span></td>
-            <td class="p-4 text-right whitespace-nowrap">
-              ${os.status !== 'concluida' ? `<button onclick="window.concluirOS(${os.id})" class="text-emerald-600 p-1"><i class="fas fa-check-circle"></i></button>` : ''}
-              <button onclick="window.editarOS(${os.id})" class="text-blue-600 p-1"><i class="fas fa-edit"></i></button>
-              <button onclick="window.excluirOS(${os.id})" class="text-red-500 p-1"><i class="fas fa-trash-alt"></i></button>
-            </td>
-          </tr>`;
+        html += `<div class="overflow-x-auto"><table class="w-full"><thead class="bg-slate-100"><tr><th class="p-4">Cliente</th><th>Técnico</th><th>Tipo/Problema</th><th>Status</th><th class="text-center">Ações</th></tr></thead><tbody>`;
+        filtered.forEach(o => {
+          const cli = clientes.find(c => c.id === o.cliente_id);
+          const tec = tecnicos.find(t => t.id === o.tecnico_id);
+          const statusText = { aberta: 'Aberta', 'em andamento': 'Em andamento', concluida: 'Concluída' }[o.status];
+          html += `<tr><td class="p-4"><b>${escapeHtml(cli?.nome || 'Removido')}</b><br><span class="text-xs">${escapeHtml(cli?.endereco || '')}</span></td><td>${escapeHtml(tec?.nome || 'N/A')}</td><td><span class="bg-slate-200 px-2 py-0.5 rounded text-xs">${o.tipo}</span><p class="text-sm">${escapeHtml(o.problema || '-')}</p></td><td><span class="px-2 py-1 rounded-lg text-xs bg-amber-100">${statusText}</span></td><td class="text-right">${o.status !== 'concluida' ? `<button onclick="window.concluirOS(${o.id})" class="text-emerald-600 p-1"><i class="fas fa-check-circle"></i></button>` : ''}<button onclick="window.editarOS(${o.id})" class="text-blue-600 p-1"><i class="fas fa-edit"></i></button><button onclick="window.excluirOS(${o.id})" class="text-red-500 p-1"><i class="fas fa-trash"></i></button></td></tr>`;
         });
         html += `</tbody></table></div>`;
       }
@@ -209,254 +196,109 @@
     }
   }
 
-  // ======================== CRUD CLIENTES ========================
-  function abrirFormCliente(id = null) {
-    const edit = id !== null;
-    const cliente = edit ? clientes.find(c => c.id === id) : null;
-    document.getElementById('modal-title').innerText = edit ? 'Editar Cliente' : 'Novo Cliente';
-    document.getElementById('modal-body').innerHTML = `
-      <form id="clienteForm" class="space-y-4">
-        <input name="nome" placeholder="Nome *" class="w-full p-3 border rounded-xl" value="${escapeHtml(cliente?.nome || '')}" required>
-        <input name="telefone" placeholder="Telefone" class="w-full p-3 border rounded-xl" value="${escapeHtml(cliente?.telefone || '')}">
-        <textarea name="endereco" placeholder="Endereço" class="w-full p-3 border rounded-xl">${escapeHtml(cliente?.endereco || '')}</textarea>
-        <input name="plano" placeholder="Plano" class="w-full p-3 border rounded-xl" value="${escapeHtml(cliente?.plano || '')}">
-        <input name="mac_roteador" placeholder="MAC" class="w-full p-3 border rounded-xl" value="${escapeHtml(cliente?.mac_roteador || '')}">
-        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">SALVAR</button>
-      </form>
-    `;
-    document.getElementById('modal').classList.remove('hidden');
-    const form = document.getElementById('clienteForm');
-    form.onsubmit = (e) => {
-      e.preventDefault();
-      const dados = Object.fromEntries(new FormData(form));
-      if (!dados.nome) return alert("Nome obrigatório");
-      if (edit) {
-        Object.assign(cliente, dados);
-      } else {
-        dados.id = proximoId(clientes);
-        clientes.push(dados);
-      }
-      salvarTudo();
-      renderAdminContent();
-      window.fecharModal();
-    };
-  }
-
-  function excluirCliente(id) {
-    // Verifica se existe alguma OS vinculada a este cliente
-    const osVinculadas = ordens.some(o => o.clienteId === id);
-    if (osVinculadas) {
-      alert("❌ Não é possível excluir este cliente porque existem Ordens de Serviço vinculadas a ele. Reatribua ou exclua as OS primeiro.");
-      return;
-    }
-    if (confirm("Excluir cliente permanentemente?")) {
-      clientes = clientes.filter(c => c.id !== id);
-      salvarTudo();
-      renderAdminContent();
-    }
-  }
-
-  // ======================== CRUD TÉCNICOS ========================
-  function abrirFormTecnico(id = null) {
-    const edit = id !== null;
-    const tecnico = edit ? tecnicos.find(t => t.id === id) : null;
-    document.getElementById('modal-title').innerText = edit ? 'Editar Técnico' : 'Novo Técnico';
-    document.getElementById('modal-body').innerHTML = `
-      <form id="tecnicoForm" class="space-y-4">
-        <input name="nome" placeholder="Nome *" class="w-full p-3 border rounded-xl" value="${escapeHtml(tecnico?.nome || '')}" required>
-        <input name="telefone" placeholder="Telefone" class="w-full p-3 border rounded-xl" value="${escapeHtml(tecnico?.telefone || '')}">
-        <input name="especialidade" placeholder="Especialidade" class="w-full p-3 border rounded-xl" value="${escapeHtml(tecnico?.especialidade || '')}">
-        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">SALVAR</button>
-      </form>
-    `;
-    document.getElementById('modal').classList.remove('hidden');
-    const form = document.getElementById('tecnicoForm');
-    form.onsubmit = (e) => {
-      e.preventDefault();
-      const dados = Object.fromEntries(new FormData(form));
-      if (!dados.nome) return alert("Nome obrigatório");
-      if (edit) {
-        Object.assign(tecnico, dados);
-      } else {
-        dados.id = proximoId(tecnicos);
-        tecnicos.push(dados);
-      }
-      salvarTudo();
-      renderAdminContent();
-      window.fecharModal();
-    };
-  }
-
-  function excluirTecnico(id) {
-    const osVinculadas = ordens.some(o => o.tecnicoId === id);
-    if (osVinculadas) {
-      alert("❌ Não é possível excluir este técnico porque existem Ordens de Serviço vinculadas a ele.");
-      return;
-    }
-    if (confirm("Excluir técnico?")) {
-      tecnicos = tecnicos.filter(t => t.id !== id);
-      salvarTudo();
-      renderAdminContent();
-    }
-  }
-
-  // ======================== ORDENS (COM SELECT DINÂMICO) ========================
-  function abrirFormOS(id = null) {
-    const edit = id !== null;
-    const osEdit = edit ? ordens.find(o => o.id === id) : null;
-    // Usa as listas atualizadas para gerar options
-    const clienteOptions = clientes.map(c => `<option value="${c.id}" ${osEdit && osEdit.clienteId === c.id ? 'selected' : ''}>${escapeHtml(c.nome)}</option>`).join('');
-    const tecnicoOptions = tecnicos.map(t => `<option value="${t.id}" ${osEdit && osEdit.tecnicoId === t.id ? 'selected' : ''}>${escapeHtml(t.nome)}</option>`).join('');
-    document.getElementById('modal-title').innerText = edit ? 'Editar OS' : 'Nova OS';
-    document.getElementById('modal-body').innerHTML = `
-      <form id="osForm" class="space-y-4">
-        <select name="clienteId" class="w-full p-3 border rounded-xl" required>
-          <option value="">Selecione o Cliente</option>
-          ${clienteOptions}
-        </select>
-        <select name="tecnicoId" class="w-full p-3 border rounded-xl" required>
-          <option value="">Selecione o Técnico</option>
-          ${tecnicoOptions}
-        </select>
-        <select name="tipo" class="w-full p-3 border rounded-xl">
-          <option value="Manutenção" ${osEdit?.tipo === 'Manutenção' ? 'selected' : ''}>Manutenção</option>
-          <option value="Instalação" ${osEdit?.tipo === 'Instalação' ? 'selected' : ''}>Instalação</option>
-          <option value="Emergencial" ${osEdit?.tipo === 'Emergencial' ? 'selected' : ''}>Emergencial</option>
-        </select>
-        <textarea name="problema" placeholder="Descrição do problema" class="w-full p-3 border rounded-xl">${escapeHtml(osEdit?.problema || '')}</textarea>
-        <select name="status" class="w-full p-3 border rounded-xl">
-          <option value="aberta" ${osEdit?.status === 'aberta' ? 'selected' : ''}>Aberta</option>
-          <option value="em andamento" ${osEdit?.status === 'em andamento' ? 'selected' : ''}>Em andamento</option>
-          <option value="concluida" ${osEdit?.status === 'concluida' ? 'selected' : ''}>Concluída</option>
-        </select>
-        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">SALVAR</button>
-      </form>
-    `;
-    document.getElementById('modal').classList.remove('hidden');
-    const form = document.getElementById('osForm');
-    form.onsubmit = (e) => {
-      e.preventDefault();
-      const clienteId = parseInt(form.clienteId.value);
-      const tecnicoId = parseInt(form.tecnicoId.value);
-      if (!clienteId || !tecnicoId) {
-        alert("Selecione cliente e técnico válidos.");
-        return;
-      }
-      const dados = {
-        clienteId,
-        tecnicoId,
-        tipo: form.tipo.value,
-        problema: form.problema.value,
-        status: form.status.value
-      };
-      if (edit) {
-        Object.assign(osEdit, dados);
-      } else {
-        dados.id = proximoId(ordens);
-        ordens.push(dados);
-      }
-      salvarTudo();
-      renderAdminContent();
-      window.fecharModal();
-    };
-  }
-
-  function editarOS(id) { abrirFormOS(id); }
-  function excluirOS(id) {
-    if (confirm("Excluir esta OS?")) {
-      ordens = ordens.filter(o => o.id !== id);
-      salvarTudo();
-      renderAdminContent();
-    }
-  }
-  function concluirOS(id) {
-    const os = ordens.find(o => o.id === id);
-    if (os && os.status !== 'concluida') {
-      os.status = 'concluida';
-      salvarTudo();
-      renderAdminContent();
-      alert("✅ OS concluída!");
-    }
-  }
-
-  // ======================== VISÃO DO TÉCNICO ========================
   function renderTecnicoView() {
-    const minhasOrdens = ordens.filter(o => o.tecnicoId === tecnicoLogado.id);
+    const minhas = ordens.filter(o => o.tecnico_id === tecnicoLogado.id);
     document.getElementById('tecInfo').innerHTML = `${escapeHtml(tecnicoLogado.nome)} - ${escapeHtml(tecnicoLogado.especialidade || 'Técnico')}`;
     const container = document.getElementById('tecOSList');
-    if (!minhasOrdens.length) {
-      container.innerHTML = `<div class="text-center p-8 text-slate-400">Nenhuma ordem atribuída.</div>`;
-      return;
-    }
+    if (!minhas.length) { container.innerHTML = '<div class="text-center p-8">Nenhuma ordem</div>'; return; }
     let html = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
-    minhasOrdens.forEach(os => {
-      const cliente = clientes.find(c => c.id === os.clienteId);
-      let statusBadge = os.status === 'aberta' ? 'Aberta' : (os.status === 'em andamento' ? 'Em andamento' : 'Concluída');
-      html += `
-        <div class="border rounded-2xl p-4 shadow-sm">
-          <div class="flex justify-between"><div><h3 class="font-bold">${escapeHtml(cliente?.nome || 'Cliente removido')}</h3><p class="text-sm">${escapeHtml(cliente?.endereco || '')}</p></div><span class="text-xs bg-slate-100 px-2 py-1 rounded">${statusBadge}</span></div>
-          <p class="mt-2"><span class="font-bold">Problema:</span> ${escapeHtml(os.problema || '-')}</p>
-          ${os.status !== 'concluida' ? `<button onclick="window.finalizarOS(${os.id})" class="mt-3 w-full bg-emerald-600 text-white py-2 rounded-xl text-sm font-bold">FINALIZAR</button>` : `<button disabled class="mt-3 w-full bg-slate-300 text-slate-500 py-2 rounded-xl text-sm">CONCLUÍDA</button>`}
-        </div>
-      `;
+    minhas.forEach(o => {
+      const cli = clientes.find(c => c.id === o.cliente_id);
+      const statusText = { aberta: 'Aberta', 'em andamento': 'Em andamento', concluida: 'Concluída' }[o.status];
+      html += `<div class="border p-4 rounded-2xl"><div class="flex justify-between"><div><b>${escapeHtml(cli?.nome || 'Removido')}</b><br><span class="text-sm">${escapeHtml(cli?.endereco || '')}</span></div><span class="text-xs bg-slate-100 px-2 py-1 rounded">${statusText}</span></div><p class="mt-2"><b>Problema:</b> ${escapeHtml(o.problema || '-')}</p>${o.status !== 'concluida' ? `<button onclick="window.finalizarOS(${o.id})" class="mt-3 w-full bg-emerald-600 text-white py-2 rounded-xl">FINALIZAR</button>` : `<button disabled class="mt-3 w-full bg-slate-300 text-slate-500 py-2 rounded-xl">CONCLUÍDA</button>`}</div>`;
     });
     html += `</div>`;
     container.innerHTML = html;
   }
 
-  function finalizarOS(id) {
+  async function finalizarOS(id) {
     const os = ordens.find(o => o.id === id);
     if (os && os.status !== 'concluida') {
-      os.status = 'concluida';
-      salvarTudo();
+      await salvarOS({ ...os, status: 'concluida' }, id);
       if (currentView === 'tecnico') renderTecnicoView();
-      if (currentView === 'admin') renderAdminContent();
-      alert("✅ OS finalizada!");
+      alert('✅ OS finalizada!');
     }
   }
 
-  // ======================== LOGIN TÉCNICO ========================
+  // ----------------------------- Modais e formulários -----------------------------
+  function abrirFormCliente(id = null) {
+    const edit = id !== null, cliente = edit ? clientes.find(c => c.id === id) : null;
+    document.getElementById('modal-title').innerText = edit ? 'Editar Cliente' : 'Novo Cliente';
+    document.getElementById('modal-body').innerHTML = `<form id="modalForm" class="space-y-4"><input name="nome" placeholder="Nome *" class="w-full p-3 border rounded-xl" value="${escapeHtml(cliente?.nome || '')}" required><input name="telefone" placeholder="Telefone" class="w-full p-3 border rounded-xl" value="${escapeHtml(cliente?.telefone || '')}"><textarea name="endereco" placeholder="Endereço" class="w-full p-3 border rounded-xl">${escapeHtml(cliente?.endereco || '')}</textarea><input name="plano" placeholder="Plano" class="w-full p-3 border rounded-xl" value="${escapeHtml(cliente?.plano || '')}"><input name="mac_roteador" placeholder="MAC" class="w-full p-3 border rounded-xl" value="${escapeHtml(cliente?.mac_roteador || '')}"><button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl">SALVAR</button></form>`;
+    document.getElementById('modal').classList.remove('hidden');
+    document.getElementById('modalForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const dados = Object.fromEntries(new FormData(e.target));
+      if (!dados.nome) return alert("Nome obrigatório");
+      await salvarCliente(dados, id);
+      window.fecharModal();
+    };
+  }
+
+  function abrirFormTecnico(id = null) {
+    const edit = id !== null, tecnico = edit ? tecnicos.find(t => t.id === id) : null;
+    document.getElementById('modal-title').innerText = edit ? 'Editar Técnico' : 'Novo Técnico';
+    document.getElementById('modal-body').innerHTML = `<form id="modalForm" class="space-y-4"><input name="nome" placeholder="Nome *" class="w-full p-3 border rounded-xl" value="${escapeHtml(tecnico?.nome || '')}" required><input name="telefone" placeholder="Telefone" class="w-full p-3 border rounded-xl" value="${escapeHtml(tecnico?.telefone || '')}"><input name="especialidade" placeholder="Especialidade" class="w-full p-3 border rounded-xl" value="${escapeHtml(tecnico?.especialidade || '')}"><button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl">SALVAR</button></form>`;
+    document.getElementById('modal').classList.remove('hidden');
+    document.getElementById('modalForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const dados = Object.fromEntries(new FormData(e.target));
+      if (!dados.nome) return alert("Nome obrigatório");
+      await salvarTecnico(dados, id);
+      window.fecharModal();
+    };
+  }
+
+  function abrirFormOS(id = null) {
+    const edit = id !== null, osEdit = edit ? ordens.find(o => o.id === id) : null;
+    const clienteOpts = clientes.map(c => `<option value="${c.id}" ${osEdit && osEdit.cliente_id === c.id ? 'selected' : ''}>${escapeHtml(c.nome)}</option>`).join('');
+    const tecnicoOpts = tecnicos.map(t => `<option value="${t.id}" ${osEdit && osEdit.tecnico_id === t.id ? 'selected' : ''}>${escapeHtml(t.nome)}</option>`).join('');
+    document.getElementById('modal-title').innerText = edit ? 'Editar OS' : 'Nova OS';
+    document.getElementById('modal-body').innerHTML = `<form id="modalForm" class="space-y-4"><select name="cliente_id" class="w-full p-3 border rounded-xl" required>${clienteOpts ? '<option value="">Selecione</option>' + clienteOpts : '<option>Nenhum cliente</option>'}</select><select name="tecnico_id" class="w-full p-3 border rounded-xl" required>${tecnicoOpts ? '<option value="">Selecione</option>' + tecnicoOpts : '<option>Nenhum técnico</option>'}</select><select name="tipo" class="w-full p-3 border rounded-xl"><option value="Manutenção" ${osEdit?.tipo === 'Manutenção' ? 'selected' : ''}>Manutenção</option><option value="Instalação" ${osEdit?.tipo === 'Instalação' ? 'selected' : ''}>Instalação</option></select><textarea name="problema" placeholder="Problema" class="w-full p-3 border rounded-xl">${escapeHtml(osEdit?.problema || '')}</textarea><select name="status" class="w-full p-3 border rounded-xl"><option value="aberta" ${osEdit?.status === 'aberta' ? 'selected' : ''}>Aberta</option><option value="em andamento" ${osEdit?.status === 'em andamento' ? 'selected' : ''}>Em andamento</option><option value="concluida" ${osEdit?.status === 'concluida' ? 'selected' : ''}>Concluída</option></select><button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl">SALVAR</button></form>`;
+    document.getElementById('modal').classList.remove('hidden');
+    document.getElementById('modalForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const dados = Object.fromEntries(new FormData(e.target));
+      if (!dados.cliente_id || !dados.tecnico_id) return alert("Selecione cliente e técnico");
+      await salvarOS(dados, id);
+      window.fecharModal();
+    };
+  }
+
   function abrirLoginTecnico() {
-    if (!tecnicos.length) { alert("Nenhum técnico cadastrado."); return; }
-    const tecOptions = tecnicos.map(t => `<button onclick="window.selecionarTecnico(${t.id})" class="w-full text-left p-3 border rounded-xl hover:bg-blue-50 flex justify-between"><span>${escapeHtml(t.nome)} - ${escapeHtml(t.especialidade)}</span><i class="fas fa-arrow-right"></i></button>`).join('');
+    if (!tecnicos.length) return alert("Nenhum técnico cadastrado.");
+    const botoes = tecnicos.map(t => `<button onclick="window.selecionarTecnico(${t.id})" class="w-full text-left p-3 border rounded-xl hover:bg-blue-50 flex justify-between"><span>${escapeHtml(t.nome)} - ${escapeHtml(t.especialidade)}</span><i class="fas fa-arrow-right"></i></button>`).join('');
     document.getElementById('modal-title').innerText = "Selecione o Técnico";
-    document.getElementById('modal-body').innerHTML = `<div class="space-y-2">${tecOptions}<button onclick="window.fecharModal()" class="w-full text-center text-slate-400 text-sm">Cancelar</button></div>`;
+    document.getElementById('modal-body').innerHTML = `<div class="space-y-2">${botoes}<button onclick="window.fecharModal()" class="w-full text-center text-slate-400 text-sm">Cancelar</button></div>`;
     document.getElementById('modal').classList.remove('hidden');
   }
 
   function selecionarTecnico(id) {
     tecnicoLogado = tecnicos.find(t => t.id === id);
-    if (tecnicoLogado) {
-      setView('tecnico');
-      window.fecharModal();
-      renderTecnicoView();
-    }
+    if (tecnicoLogado) { setView('tecnico'); window.fecharModal(); renderTecnicoView(); }
   }
 
-  // ======================== PDF ========================
   async function gerarPDFOrdens() {
-    let filtered = ordens.filter(os => {
-      const cliente = clientes.find(c => c.id === os.clienteId);
-      const tecnico = tecnicos.find(t => t.id === os.tecnicoId);
-      return (cliente?.nome || '').toLowerCase().includes(searchTerm) ||
-             (tecnico?.nome || '').toLowerCase().includes(searchTerm) ||
-             os.tipo?.toLowerCase().includes(searchTerm);
+    const filtered = ordens.filter(o => {
+      const cli = clientes.find(c => c.id === o.cliente_id);
+      const tec = tecnicos.find(t => t.id === o.tecnico_id);
+      return (cli?.nome || '').toLowerCase().includes(searchTerm) || (tec?.nome || '').toLowerCase().includes(searchTerm);
     });
-    if (!filtered.length) { alert("Nenhuma ordem para exportar."); return; }
-    const tableData = filtered.map(os => {
-      const cliente = clientes.find(c => c.id === os.clienteId);
-      const tecnico = tecnicos.find(t => t.id === os.tecnicoId);
-      return [os.id, cliente?.nome || 'Removido', tecnico?.nome || 'N/A', os.tipo, os.problema, { aberta: 'Aberta', 'em andamento': 'Em andamento', concluida: 'Concluída' }[os.status]];
+    if (!filtered.length) return alert("Nenhuma ordem");
+    const body = filtered.map(o => {
+      const cli = clientes.find(c => c.id === o.cliente_id);
+      const tec = tecnicos.find(t => t.id === o.tecnico_id);
+      return [o.id, cli?.nome || 'Removido', tec?.nome || 'N/A', o.tipo, o.problema, { aberta: 'Aberta', 'em andamento': 'Em andamento', concluida: 'Concluída' }[o.status]];
     });
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape' });
     doc.text("HDNet - Ordens de Serviço", 14, 20);
     doc.text(`Gerado em: ${new Date().toLocaleString()}`, 14, 28);
-    doc.autoTable({ startY: 35, head: [['ID','Cliente','Técnico','Tipo','Problema','Status']], body: tableData });
+    doc.autoTable({ startY: 35, head: [['ID','Cliente','Técnico','Tipo','Problema','Status']], body });
     doc.save(`ordens_${Date.now()}.pdf`);
   }
 
-  // ======================== CONTROLE ========================
+  // ----------------------------- Navegação e utilidades -----------------------------
   function setView(view) {
     currentView = view;
     document.getElementById('adminView').style.display = view === 'admin' ? 'block' : 'none';
@@ -465,34 +307,18 @@
     if (view === 'admin') renderAdminContent();
   }
 
-  function setActiveTab(tab) {
-    activeTab = tab;
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('tab-active'));
-    document.getElementById(`tab-${tab}`).classList.add('tab-active');
-    renderAdminContent();
-  }
-
+  function setActiveTab(tab) { activeTab = tab; document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('tab-active')); document.getElementById(`tab-${tab}`).classList.add('tab-active'); renderAdminContent(); }
   function fecharModal() { document.getElementById('modal').classList.add('hidden'); }
   function escapeHtml(str) { return !str ? '' : String(str).replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
 
-  // Eventos
-  document.getElementById('searchInput').addEventListener('input', (e) => {
-    searchTerm = e.target.value.toLowerCase();
-    if (currentView === 'admin') renderAdminContent();
-  });
+  document.getElementById('searchInput').addEventListener('input', (e) => { searchTerm = e.target.value.toLowerCase(); if (currentView === 'admin') renderAdminContent(); });
 
-  // Inicialização
-  carregarDados();
-  setView('admin');
-  setActiveTab('os');
-
-  // Expor globais
   window.abrirFormCliente = abrirFormCliente;
   window.excluirCliente = excluirCliente;
   window.abrirFormTecnico = abrirFormTecnico;
   window.excluirTecnico = excluirTecnico;
   window.abrirFormOS = abrirFormOS;
-  window.editarOS = editarOS;
+  window.editarOS = abrirFormOS;
   window.excluirOS = excluirOS;
   window.concluirOS = concluirOS;
   window.finalizarOS = finalizarOS;
@@ -502,6 +328,10 @@
   window.abrirLoginTecnico = abrirLoginTecnico;
   window.selecionarTecnico = selecionarTecnico;
   window.gerarPDFOrdens = gerarPDFOrdens;
+
+  carregarDados();
+  setView('admin');
+  setActiveTab('os');
 </script>
 </body>
 </html>
